@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Lottery;
 use Illuminate\Support\Str;
 use Illuminate\Support\Traits\Macroable;
+use Laravel\Pennant\Contracts\AsGate;
 use Laravel\Pennant\Contracts\Driver as DriverContract;
 use Laravel\Pennant\Contracts\FeatureScopeable;
 use Laravel\Pennant\Events\DynamicallyRegisteringFeatureClass;
@@ -256,11 +257,13 @@ class Decorator implements DriverContract
      */
     public function get($feature, $scope): mixed
     {
+        $skipCache = class_exists($feature) && in_array(AsGate::class, class_implements($feature));
+
         $feature = $this->resolveFeature($feature);
 
         $scope = $this->resolveScope($scope);
 
-        $item = $this->cache
+        $item = $skipCache ? null : $this->cache
             ->whereStrict('scope', $scope)
             ->whereStrict('feature', $feature)
             ->first();
@@ -271,8 +274,10 @@ class Decorator implements DriverContract
             return $item['value'];
         }
 
-        return tap($this->driver->get($feature, $scope), function ($value) use ($feature, $scope) {
-            $this->putInCache($feature, $scope, $value);
+        return tap($this->driver->get($feature, $scope), function ($value) use ($feature, $scope, $skipCache) {
+            if (! $skipCache) {
+                $this->putInCache($feature, $scope, $value);
+            }
 
             $this->container['events']->dispatch(new FeatureRetrieved($feature, $scope, $value));
         });
