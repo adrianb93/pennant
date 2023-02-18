@@ -2,7 +2,10 @@
 
 namespace Laravel\Pennant;
 
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Gate;
 use RuntimeException;
 
 class PendingScopedFeatureInteraction
@@ -22,6 +25,13 @@ class PendingScopedFeatureInteraction
     protected $scope = [];
 
     /**
+     * Default scope to resolve.
+     *
+     * @var array<class-string, mixed>
+     */
+    protected $resolvers = [];
+
+    /**
      * Create a new Pending Scoped Feature Interaction instance.
      *
      * @param  \Laravel\Pennant\Drivers\Decorator  $driver
@@ -29,6 +39,50 @@ class PendingScopedFeatureInteraction
     public function __construct($driver)
     {
         $this->driver = $driver;
+        $this->resolvers = Config::get('pennant.resolve', []);
+    }
+
+    /**
+     * Determine if the entity has the ability for the given flagged features.
+     *
+     * @param  array|mixed  $parameters
+     */
+    public function can(iterable|string $features, $parameters = []): bool
+    {
+        $user = $this->findScoped(User::class);
+
+        return $this->active($features)
+            && Gate::forUser($user)->check($this->gatedFeatures($features), $parameters);
+    }
+
+    /**
+     * Determine if the entity has any abilities for the given flagged features.
+     *
+     * @param  array|mixed  $parameters
+     */
+    public function canAny(iterable|string $features, $parameters = []): bool
+    {
+        return (bool) Collection::wrap($features)->first(fn ($feature) => $this->can($feature, $parameters));
+    }
+
+    /**
+     * Determine if the entity does not have the ability for the given flagged features.
+     *
+     * @param  array|mixed  $parameters
+     */
+    public function cant(iterable|string $features, $parameters = []): bool
+    {
+        return ! $this->can($features, $parameters);
+    }
+
+    /**
+     * Determine if the entity does not have the ability for the given flagged features.
+     *
+     * @param  array|mixed  $parameters
+     */
+    public function cannot(iterable|string $features, $parameters = []): bool
+    {
+        return $this->cant($features, $parameters);
     }
 
     /**
@@ -40,6 +94,15 @@ class PendingScopedFeatureInteraction
     public function for($scope)
     {
         $this->scope = array_merge($this->scope, Collection::wrap($scope)->all());
+
+        $this->resolvers = Collection::make($this->resolvers)
+            ->reject(fn ($resolver, string $resolves) => Collection::make($this->scope)
+                ->filter()
+                ->map(fn ($scope) => $scope::class)
+                ->contains(fn (string $scope) => $scope === $resolves || is_subclass_of($scope, $resolves))
+            )
+            ->values()
+            ->all();
 
         return $this;
     }
@@ -271,6 +334,32 @@ class PendingScopedFeatureInteraction
      */
     protected function scope()
     {
+        $this->for(
+            Collection::make($this->resolvers)->map(value(...))->all()
+        );
+
         return $this->scope ?: [null];
+    }
+
+    /**
+     * Find a scoped instance.
+     *
+     * @return null|mixed
+     */
+    protected function findScoped(string $class)
+    {
+        return Collection::make($this->scope())->first(
+            fn ($scope) => $scope && $scope instanceof $class
+        );
+    }
+
+    protected function gatedFeatures(iterable|string $features): array
+    {
+        return Collection::wrap($features)
+            ->filter(fn ($feature) => class_exists($feature))
+            ->filter(fn ($feature) => method_exists($feature, 'gate'))
+            ->each(fn ($feature) => Gate::define($feature, [$feature, 'gate']))
+            ->values()
+            ->all();
     }
 }

@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
+
 return [
 
     /*
@@ -41,4 +43,24 @@ return [
         ],
 
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Pennant Default Scopes
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify a handler method for any given scope when using
+    | class based features. You may also specify how to resolve default
+    | scope for convinience. Resolvers are overridden by given scope.
+    |
+    */
+
+    'subscribe' => [
+        App\Models\User::class => 'flagUser',
+    ],
+
+    'resolve' => [
+        App\Models\User::class => fn () => Auth::user(),
+    ],
+
 ];
