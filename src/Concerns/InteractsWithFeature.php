@@ -5,6 +5,7 @@ namespace Laravel\Pennant\Concerns;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Traits\ForwardsCalls;
+use Laravel\Pennant\Contracts\WithoutDefaultScope;
 use Laravel\Pennant\Feature;
 use Laravel\Pennant\PendingScopedFeatureInteraction;
 
@@ -50,7 +51,9 @@ trait InteractsWithFeature
      */
     public function __call(string $method, array $parameters)
     {
-        $this->instance ??= Feature::for([]);
+        $this->instance ??= $this instanceof WithoutDefaultScope
+            ? Feature::for([])->withoutDefaultScope()
+            : Feature::for([]);
 
         $needsFeatureParameter = in_array($method, [
             'activate', 'active', 'allAreActive', 'allAreInactive', 'can', 'cant',

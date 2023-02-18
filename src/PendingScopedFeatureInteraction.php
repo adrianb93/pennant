@@ -108,6 +108,18 @@ class PendingScopedFeatureInteraction
     }
 
     /**
+     * Should not resolve any default scopes.
+     *
+     * @return $this
+     */
+    public function withoutDefaultScope()
+    {
+        $this->resolvers = [];
+
+        return $this;
+    }
+
+    /**
      * Load the feature into memory.
      *
      * @param  string|array<int, string>  $features
