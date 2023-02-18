@@ -20,6 +20,8 @@ trait InteractsWithFeature
 
     /**
      * Resolve the feature's initial value.
+     *
+     * @param  mixed  $scope
      */
     public function resolve($scope): bool
     {
