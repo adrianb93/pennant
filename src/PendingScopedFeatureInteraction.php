@@ -353,6 +353,9 @@ class PendingScopedFeatureInteraction
         );
     }
 
+    /**
+     * Returns filtered array of class based features with a gate function.
+     */
     protected function gatedFeatures(iterable|string $features): array
     {
         return Collection::wrap($features)
