@@ -195,6 +195,13 @@ class Decorator implements DriverContract
      */
     public function getAll($features): array
     {
+        $this->purge(Collection::wrap($features)
+            ->filter(fn ($feature) => class_exists($feature))
+            ->filter(fn ($feature) => in_array(AsGate::class, class_implements($feature)))
+            ->values()
+            ->all()
+        );
+
         $features = $this->normalizeFeaturesToLoad($features);
 
         if ($features->isEmpty()) {
@@ -257,8 +264,6 @@ class Decorator implements DriverContract
      */
     public function get($feature, $scope): mixed
     {
-        $skipCache = class_exists($feature) && in_array(AsGate::class, class_implements($feature));
-
         $feature = $this->resolveFeature($feature);
 
         $scope = $this->resolveScope($scope);
@@ -274,10 +279,8 @@ class Decorator implements DriverContract
             return $item['value'];
         }
 
-        return tap($this->driver->get($feature, $scope), function ($value) use ($feature, $scope, $skipCache) {
-            if (! $skipCache) {
-                $this->putInCache($feature, $scope, $value);
-            }
+        return tap($this->driver->get($feature, $scope), function ($value) use ($feature, $scope) {
+            $this->putInCache($feature, $scope, $value);
 
             $this->container['events']->dispatch(new FeatureRetrieved($feature, $scope, $value));
         });
@@ -470,6 +473,12 @@ class Decorator implements DriverContract
      */
     protected function putInCache($feature, $scope, $value)
     {
+        $skipCache = class_exists($feature) && in_array(AsGate::class, class_implements($feature));
+
+        if ($skipCache) {
+            return;
+        }
+
         $position = $this->cache->search(
             fn ($item) => $item['feature'] === $feature && $item['scope'] === $scope
         );
