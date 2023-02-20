@@ -4,6 +4,7 @@ namespace Laravel\Pennant;
 
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Manager;
 use InvalidArgumentException;
 use Laravel\Pennant\Drivers\ArrayDriver;

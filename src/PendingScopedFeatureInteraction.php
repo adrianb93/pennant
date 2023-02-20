@@ -343,7 +343,7 @@ class PendingScopedFeatureInteraction
 
         return Collection::wrap($features)
             ->filter(fn ($feature) => class_exists($feature))
-            ->filter(fn ($feature) => match (true) => {
+            ->filter(fn ($feature) => match (true) {
                 method_exists($feature, 'gate') => Gate::define($feature, [$feature, 'gate']),
                 $handleUser && method_exists($feature, $handleUser) => Gate::define($feature, [$feature, $handleUser]),
                 default => false,
