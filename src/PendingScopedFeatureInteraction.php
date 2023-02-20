@@ -25,13 +25,6 @@ class PendingScopedFeatureInteraction
     protected $scope = [];
 
     /**
-     * Default scope to resolve.
-     *
-     * @var array<class-string, mixed>
-     */
-    protected $resolvers = [];
-
-    /**
      * Create a new Pending Scoped Feature Interaction instance.
      *
      * @param  \Laravel\Pennant\Drivers\Decorator  $driver
@@ -39,7 +32,6 @@ class PendingScopedFeatureInteraction
     public function __construct($driver)
     {
         $this->driver = $driver;
-        $this->resolvers = Config::get('pennant.resolve', []);
     }
 
     /**
@@ -94,27 +86,6 @@ class PendingScopedFeatureInteraction
     public function for($scope)
     {
         $this->scope = array_merge($this->scope, Collection::wrap($scope)->all());
-
-        $this->resolvers = Collection::make($this->resolvers)
-            ->reject(fn ($resolver, string $resolves) => Collection::make($this->scope)
-                ->filter()
-                ->map(fn ($scope) => is_string($scope) ? $scope : $scope::class)
-                ->contains(fn (string $scope) => $scope === $resolves || is_subclass_of($scope, $resolves))
-            )
-            ->values()
-            ->all();
-
-        return $this;
-    }
-
-    /**
-     * Should not resolve any default scopes.
-     *
-     * @return $this
-     */
-    public function withoutDefaultScope()
-    {
-        $this->resolvers = [];
 
         return $this;
     }
@@ -346,10 +317,6 @@ class PendingScopedFeatureInteraction
      */
     protected function scope()
     {
-        $this->for(
-            Collection::make($this->resolvers)->map(value(...))->all()
-        );
-
         return $this->scope ?: [null];
     }
 
@@ -372,7 +339,7 @@ class PendingScopedFeatureInteraction
     {
         $user = $this->findScoped(User::class);
         $subscribed = Config::get('pennant.subscribe', []);
-        $handleUser = value(collect($subscribed)->keys()->first(fn ($resolves) => $user instanceof $resolves), $user);
+        $handleUser = value(collect($subscribed)->keys()->first(fn ($subscribes) => $user instanceof $subscribes), $user);
 
         return Collection::wrap($features)
             ->filter(fn ($feature) => class_exists($feature))

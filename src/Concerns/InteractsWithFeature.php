@@ -30,7 +30,7 @@ trait InteractsWithFeature
         $subscribed = Config::get('pennant.subscribe', []);
         $handle = $scope === null
             ? value($subscribed['null'] ?? null)
-            : value(collect($subscribed)->keys()->first(fn ($resolves) => $scope instanceof $resolves), $scope);
+            : value(collect($subscribed)->keys()->first(fn ($subscribes) => $scope instanceof $subscribes), $scope);
 
         return $handle && method_exists($this, $handle)
             ? (bool) $this->{$handle}($scope, ...Arr::wrap($parameters))

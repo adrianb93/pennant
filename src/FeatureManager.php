@@ -116,7 +116,11 @@ class FeatureManager extends Manager
                 return ($this->defaultScopeResolver)($driver);
             }
 
-            return $this->container['auth']->guard()->user();
+            $resolvers = Config::get('pennant.resolve', [
+                $this->container['auth']->guard()->user(),
+            ]);
+
+            return Collection::make()->map(value(...))->values()->all();
         };
     }
 
