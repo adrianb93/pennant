@@ -195,13 +195,6 @@ class Decorator implements DriverContract
      */
     public function getAll($features): array
     {
-        $this->purge(Collection::wrap($features)
-            ->filter(fn ($feature) => class_exists($feature))
-            ->filter(fn ($feature) => in_array(AsGate::class, class_implements($feature)))
-            ->values()
-            ->all()
-        );
-
         $features = $this->normalizeFeaturesToLoad($features);
 
         if ($features->isEmpty()) {
@@ -244,8 +237,15 @@ class Decorator implements DriverContract
     {
         return Collection::wrap($features)
             ->mapWithKeys(fn ($value, $key) => is_int($key)
-                ? [$value => Collection::make([$this->defaultScope()])]
-                : [$key => Collection::wrap($value)])
+                ? [$value => Collection::make()]
+                : [$key => Collection::wrap($value)]
+            )
+            ->pipe(fn (Collection $features) => tap($features, fn () => $this->purge($features
+                ->filter(fn ($scopes, $feature) => class_exists($feature))
+                ->filter(fn ($scopes, $feature) => in_array(AsGate::class, class_implements($feature)))
+                ->values()
+                ->all()
+            )))
             ->mapWithKeys(fn ($scopes, $feature) => [
                 $this->resolveFeature($feature) => $scopes,
             ])
@@ -268,7 +268,7 @@ class Decorator implements DriverContract
 
         $scope = $this->resolveScope($scope);
 
-        $item = $skipCache ? null : $this->cache
+        $item = $this->shouldSkipCache($feature) ? null : $this->cache
             ->whereStrict('scope', $scope)
             ->whereStrict('feature', $feature)
             ->first();
@@ -473,9 +473,7 @@ class Decorator implements DriverContract
      */
     protected function putInCache($feature, $scope, $value)
     {
-        $skipCache = class_exists($feature) && in_array(AsGate::class, class_implements($feature));
-
-        if ($skipCache) {
+        if ($this->shouldSkipCache($feature)) {
             return;
         }
 
@@ -548,6 +546,18 @@ class Decorator implements DriverContract
         $this->container = $container;
 
         return $this;
+    }
+
+    /**
+     * Should the store be used for this feature?
+     *
+     * @param  mixed  $feature
+     * @return bool
+     */
+    protected function shouldSkipCache($feature)
+    {
+        return class_exists($feature)
+            && in_array(AsGate::class, class_implements($feature));
     }
 
     /**
