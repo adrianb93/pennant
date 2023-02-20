@@ -98,7 +98,7 @@ class PendingScopedFeatureInteraction
         $this->resolvers = Collection::make($this->resolvers)
             ->reject(fn ($resolver, string $resolves) => Collection::make($this->scope)
                 ->filter()
-                ->map(fn ($scope) => $scope::class)
+                ->map(fn ($scope) => is_string($scope) ? $scope : $scope::class)
                 ->contains(fn (string $scope) => $scope === $resolves || is_subclass_of($scope, $resolves))
             )
             ->values()
@@ -370,10 +370,17 @@ class PendingScopedFeatureInteraction
      */
     protected function gatedFeatures(iterable|string $features): array
     {
+        $user = $this->findScoped(User::class);
+        $subscribed = Config::get('pennant.subscribe', []);
+        $handleUser = value(collect($subscribed)->keys()->first(fn ($resolves) => $user instanceof $resolves), $user);
+
         return Collection::wrap($features)
             ->filter(fn ($feature) => class_exists($feature))
-            ->filter(fn ($feature) => method_exists($feature, 'gate'))
-            ->each(fn ($feature) => Gate::define($feature, [$feature, 'gate']))
+            ->filter(fn ($feature) => match (true) => {
+                method_exists($feature, 'gate') => Gate::define($feature, [$feature, 'gate']),
+                $handleUser && method_exists($feature, $handleUser) => Gate::define($feature, [$feature, $handleUser]),
+                default => false,
+            })
             ->values()
             ->all();
     }

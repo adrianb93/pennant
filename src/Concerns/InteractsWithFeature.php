@@ -3,6 +3,7 @@
 namespace Laravel\Pennant\Concerns;
 
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Traits\ForwardsCalls;
 use Laravel\Pennant\Contracts\WithoutDefaultScope;
@@ -22,16 +23,17 @@ trait InteractsWithFeature
      * Resolve the feature's initial value.
      *
      * @param  mixed  $scope
+     * @param  array|mixed  $parameters
      */
-    public function resolve($scope): bool
+    public function resolve($scope, $parameters = []): bool
     {
-        $resolver = $scope ? $scope::class : 'null';
         $subscribed = Config::get('pennant.subscribe', []);
-
-        $handle = value($subscribed[$resolver] ?? null, $scope);
+        $handle = $scope === null
+            ? value($subscribed['null'] ?? null)
+            : value(collect($subscribed)->keys()->first(fn ($resolves) => $scope instanceof $resolves), $scope);
 
         return $handle && method_exists($this, $handle)
-            ? (bool) $this->{$handle}($scope)
+            ? (bool) $this->{$handle}($scope, ...Arr::wrap($parameters))
             : true;
     }
 
